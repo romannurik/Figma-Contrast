@@ -1,0 +1,37 @@
+{
+  "name": "figma-artboard-tricks-plugin",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch"
+  },
+  "author": "Roman Nurik",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@babel/core": "^7.5.5",
+    "@types/classnames": "^2.2.9",
+    "@types/figma": "^1.0.2",
+    "@types/react": "^16.9.23",
+    "@types/react-dom": "^16.9.5",
+    "babel-loader": "^8.0.6",
+    "babel-preset-env": "^1.7.0",
+    "copy-webpack-plugin": "^5.1.1",
+    "css-loader": "^3.1.0",
+    "figma-plugin-ds": "file:../figma-plugin-ds",
+    "html-loader": "^0.5.5",
+    "node-sass": "^4.13.1",
+    "raw-loader": "^4.0.0",
+    "sass-loader": "^7.1.0",
+    "ts-loader": "^6.0.4",
+    "typescript": "^3.5.3",
+    "webpack": "^4.36.1",
+    "webpack-cli": "^3.3.6"
+  },
+  "dependencies": {
+    "classnames": "^2.2.6",
+    "react": "^16.13.0",
+    "react-dom": "^16.13.0",
+    "react-figma-plugin-ds": "^1.0.3"
+  }
+}
