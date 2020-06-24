@@ -36,7 +36,13 @@ export async function decodeToImageData(bytes): Promise<ImageData> {
 
 
 
-export function getImageDataPixel(imageData: ImageData, x: number, y: number): RGBA {
+export function getImageDataPixel(imageData: ImageData, x: number, y: number, constrain = true): RGBA {
+  x = Math.round(x);
+  y = Math.round(y);
+  if (constrain) {
+    x = Math.max(0, Math.min(x, imageData.width - 1));
+    y = Math.max(0, Math.min(y, imageData.height - 1));
+  }
   if (x < 0 || x >= imageData.width || y < 0 || y >= imageData.height) {
     return null;
   }

@@ -66,6 +66,9 @@ async function generateReport() {
           effectiveOpacity: opacity * node.opacity
         });
       }
+      if (!node.visible) {
+        return 'skipchildren';
+      }
       return {opacity}; // context for children
     }, {opacity: 1});
 
