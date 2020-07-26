@@ -101,7 +101,7 @@ async function generateReport() {
             color
           };
 
-          textNode.visible = false;
+          textNode.opacity = 0;
           return textNodeInfo;
         })
         .filter(x => !!x);
