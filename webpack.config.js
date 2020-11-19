@@ -64,7 +64,12 @@ module.exports = {
   },
   plugins: [
     new CopyPlugin([
-      { from: './src/manifest.json', to: '.' },
+      {
+        from: './src/manifest.json',
+        to: '.',
+        transform: buffer => buffer.toString('utf8')
+            .replace(/\%\%PLUGIN_ID\%\%/g, process.env.PLUGIN_ID),
+      },
     ]),
   ],
 };

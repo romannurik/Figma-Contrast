@@ -2,5 +2,5 @@
   "name": "Contrast",
   "api": "1.0.0",
   "main": "main.js",
-  "id": "815459412677630743"
+  "id": "%%PLUGIN_ID%%"
 }
