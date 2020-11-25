@@ -1,9 +1,15 @@
 import classnames from 'classnames';
+import { createIframeMessenger } from 'figma-messenger';
+import { html } from 'figui-loader/util';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
+import { Button, Text } from 'react-figma-plugin-ds';
+import 'react-figma-plugin-ds/figma-plugin-ds.css';
 import { decodeToImageData } from '../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
-import { Button } from 'react-figma-plugin-ds';
+import './report-ui.scss';
+
+const messenger = createIframeMessenger<ReportIframeToMain, ReportMainToIframe>();
 
 class App extends React.Component {
   previewRef = React.createRef() as React.RefObject<HTMLDivElement>;
@@ -19,30 +25,26 @@ class App extends React.Component {
   componentDidMount() {
     this.resize();
     window.onresize = () => this.resize();
-    window.onmessage = async event => {
-      let message = event.data.pluginMessage;
-      if (message.reportAvailable) {
-        let report = message.reportAvailable as ReportAvailableMessage;
-        let frameReports = [];
-        for (let frame of report.frameReports) {
-          let {name, imageWithoutTextLayers, imageWithTextLayers, textNodeInfos} = frame;
-          let bgImageData = await decodeToImageData(imageWithoutTextLayers);
-          let imageUri = urlForImageBytes(imageWithTextLayers);
-          let hotspots = [];
-          for (let textNodeInfo of textNodeInfos) {
-            let contrastReport = computeTypeContrast(textNodeInfo, bgImageData);
-            hotspots.push({
-              ...textNodeInfo,
-              ...contrastReport,
-            });
-          }
-
-          frameReports.push({name, imageUri, hotspots});
+    messenger.on('reportAvailable', async report => {
+      let frameReports = [];
+      for (let frame of report.frameReports) {
+        let {name, imageWithoutTextLayers, imageWithTextLayers, textNodeInfos} = frame;
+        let bgImageData = await decodeToImageData(imageWithoutTextLayers);
+        let imageUri = urlForImageBytes(imageWithTextLayers);
+        let hotspots = [];
+        for (let textNodeInfo of textNodeInfos) {
+          let contrastReport = computeTypeContrast(textNodeInfo, bgImageData);
+          hotspots.push({
+            ...textNodeInfo,
+            ...contrastReport,
+          });
         }
 
-        this.setState({loaded: true, selectedFrame: frameReports[0], frameReports});
+        frameReports.push({name, imageUri, hotspots});
       }
-    };    
+
+      this.setState({loaded: true, selectedFrame: frameReports[0], frameReports});
+    });
   }
 
   componentDidUpdate() {
@@ -119,9 +121,9 @@ class App extends React.Component {
             }
 
             return <button
-                  className={classnames('frame-list-item', {'is-selected': frame === selectedFrame})}
+                  className={classnames('frame-list-item', 'type', {'is-selected': frame === selectedFrame})}
                   onClick={() => this.setActiveFrame(frame)}>
-                <span className="frame-list-item-title">{frame.name}</span>
+                <span>{frame.name}</span>
                 <div className="frame-list-item-score">
                 {Object.keys(scoresByStatus).sort().map(status =>
                     <div className={`score-${status}`}>{scoresByStatus[status]}</div>)}
@@ -151,10 +153,8 @@ class App extends React.Component {
   }
 }
 
-
-ReactDOM.render(<App />, document.querySelector('.root'));
-
-
+html('<div class="root"></div>').then(
+    () =>  ReactDOM.render(<App />, document.querySelector('.root')));
 
 function urlForImageBytes(ui8arr) {
   //let base64Data = btoa(String.fromCharCode.apply(null, report.imageWithTextLayers));

@@ -1,5 +1,8 @@
+import { createMainThreadMessenger } from 'figma-messenger';
+import html from 'figui-loader!./report-ui';
 import * as util from '../util';
-import * as html from './report-ui.html';
+
+const messenger = createMainThreadMessenger<ReportMainToIframe, ReportIframeToMain>();
 
 export default function() {
   if (!figma.currentPage.selection.length) {
@@ -10,12 +13,6 @@ export default function() {
 
   figma.showUI(html, {width: 900, height: 600});
   generateReport();
-
-  figma.ui.onmessage = message => {
-    // if (message.generateReport) {
-    // figma.closePlugin();
-    // }
-  };
 }
 
 const EXPORT_SETTINGS: ExportSettings = {
@@ -117,7 +114,5 @@ async function generateReport() {
   }
 
   // push the report
-  figma.ui.postMessage({
-    reportAvailable: <ReportAvailableMessage>{frameReports}
-  });
+  messenger.send('reportAvailable', {frameReports});
 }

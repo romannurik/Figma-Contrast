@@ -1,5 +1,9 @@
-interface ReportAvailableMessage {
-  frameReports: FrameReport[];
+interface ReportIframeToMain {
+  cancel();
+}
+
+interface ReportMainToIframe {
+  reportAvailable(report: { frameReports: FrameReport[] });
 }
 
 interface FrameReport {

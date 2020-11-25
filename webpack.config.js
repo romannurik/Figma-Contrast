@@ -8,20 +8,13 @@ module.exports = {
   entry: {
     main: './src/main.entry.ts',
   },
+  performance: { hints: false },
   output: {
     filename: '[name].js',
     path: path.join(process.cwd(), './dist'),
   },
   module: {
     rules: [
-      // Embedded JS/TS
-      {
-        test: /\.embedded\.(j|t)sx?$/,
-        exclude: /node_modules/,
-        use: [
-          require.resolve('./embedded-bundle-loader'),
-        ]
-      },
       // JS and TS
       {
         test: /\.jsx?$/,
@@ -41,6 +34,7 @@ module.exports = {
       {
         test: /\.s?css$/,
         use: [
+          'style-loader',
           'css-loader',
           'sass-loader',
         ]
@@ -68,7 +62,7 @@ module.exports = {
         from: './src/manifest.json',
         to: '.',
         transform: buffer => buffer.toString('utf8')
-            .replace(/\%\%PLUGIN_ID\%\%/g, process.env.PLUGIN_ID),
+            .replace(/%%(\w+)%%/g, (_, v) => process.env[v] || ''),
       },
     ]),
   ],
