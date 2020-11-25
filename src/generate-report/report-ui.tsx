@@ -3,7 +3,7 @@ import { createIframeMessenger } from 'figma-messenger';
 import { html } from 'figui-loader/util';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
-import { Button, Text } from 'react-figma-plugin-ds';
+import { Checkbox } from 'react-figma-plugin-ds';
 import 'react-figma-plugin-ds/figma-plugin-ds.css';
 import { decodeToImageData } from '../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
@@ -105,10 +105,11 @@ class App extends React.Component {
 
     return <React.Fragment>
       <div className="toolbar">
-        <Button isSecondary
-            onClick={ ev => this.setState({ benchmark: (benchmark === 'aa') ? 'aaa' : 'aa' }) }>
-          {benchmark.toUpperCase()}
-        </Button>
+        {['aa', 'aaa'].map(bm =>
+          <Checkbox type="radio" label={bm.toUpperCase()} name="benchmark"
+              defaultValue={benchmark === bm}
+              onChange={ () => { this.setState({ benchmark: bm }); }} />
+        )}
       </div>
       <div className="main">
         {frameReports.length >= 2 && <div className="frame-list">
