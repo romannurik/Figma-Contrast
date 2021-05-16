@@ -1,41 +1,22 @@
 {
-  "name": "figma-artboard-tricks-plugin",
+  "name": "contrast-figma-plugin",
   "version": "1.0.0",
-  "description": "",
   "scripts": {
-    "build:google": "PLUGIN_ID=815459412677630743 webpack",
-    "watch:google": "PLUGIN_ID=815459412677630743 webpack --watch",
-    "build": "PLUGIN_ID=911262488575486588 webpack",
-    "watch": "PLUGIN_ID=911262488575486588 webpack --watch"
+    "build:google": "PLUGIN_ID=815459412677630743 figpack",
+    "start:google": "PLUGIN_ID=815459412677630743 figpack --watch",
+    "build": "PLUGIN_ID=911262488575486588 figpack",
+    "start": "PLUGIN_ID=911262488575486588 figpack --watch"
   },
-  "author": "Roman Nurik",
-  "license": "Apache-2.0",
   "devDependencies": {
-    "@babel/core": "^7.5.5",
-    "@figma/plugin-typings": "^1.19.0",
-    "@types/classnames": "^2.2.9",
-    "@types/react": "^16.9.23",
-    "@types/react-dom": "^16.9.5",
-    "babel-loader": "^8.0.6",
-    "babel-preset-env": "^1.7.0",
-    "copy-webpack-plugin": "^5.1.1",
-    "css-loader": "^3.1.0",
-    "figui-loader": "^0.1.2",
-    "html-loader": "^0.5.5",
-    "node-sass": "^4.13.1",
-    "raw-loader": "^4.0.0",
-    "sass-loader": "^7.1.0",
-    "style-loader": "^2.0.0",
-    "ts-loader": "^6.0.4",
-    "typescript": "^3.5.3",
-    "webpack": "^4.36.1",
-    "webpack-cli": "^3.3.6"
+    "@figma/plugin-typings": "^1.23.0",
+    "@types/react": "^17.0.5",
+    "figpack": "file:../lib/figpack"
   },
   "dependencies": {
     "classnames": "^2.2.6",
     "figma-messenger": "^1.0.5",
     "react": "^16.13.0",
     "react-dom": "^16.13.0",
-    "react-figma-plugin-ds": "^2.0.5"
+    "react-figma-plugin-ds": "^2.2.0"
   }
 }

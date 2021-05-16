@@ -1,0 +1,11 @@
+{
+  "name": "Contrast",
+  "api": "1.0.0",
+  "id": "%%PLUGIN_ID%%",
+  "menu": [
+    {
+      "name": "Generate contrast report",
+      "command": "generate-report"
+    }
+  ]
+}

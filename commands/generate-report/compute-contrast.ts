@@ -1,5 +1,5 @@
-import * as util from '../util';
-import { getImageDataPixel } from "../image-decode-encode";
+import * as util from '../../util';
+import { getImageDataPixel } from "../../image-decode-encode";
 
 /**
  * Computes the AA contrast rating (pass/fail) for the given text layer, at the given
@@ -7,12 +7,12 @@ import { getImageDataPixel } from "../image-decode-encode";
  * image.
  */
 export function computeTypeContrast(textNodeInfo: TextNodeInfo, bgImageData: ImageData): ContrastResult {
-  let {x, y, w, h, isBold, textSize, color, effectiveOpacity} = textNodeInfo;
+  let { x, y, w, h, isBold, textSize, color, effectiveOpacity } = textNodeInfo;
   if (!color) {
     // show error
     return {
-      aa: {status: 'unknown', contrastRatio: 0 },
-      aaa: {status: 'unknown', contrastRatio: 0 }
+      aa: { status: 'unknown', contrastRatio: 0 },
+      aaa: { status: 'unknown', contrastRatio: 0 }
     };
   }
 
@@ -30,7 +30,7 @@ export function computeTypeContrast(textNodeInfo: TextNodeInfo, bgImageData: Ima
   let passingAAContrastForLayer = largeText ? 3 : 4.5;
   let passingAAAContrastForLayer = largeText ? 4.5 : 7;
 
-  let stats = {aaFail: 0, aaPass: 0, aaaFail: 0, aaaPass: 0, minCR: Infinity, maxCR: 0};
+  let stats = { aaFail: 0, aaPass: 0, aaaFail: 0, aaaPass: 0, minCR: Infinity, maxCR: 0 };
 
   for (let [x_, y_] of samplePoints) {
     let bgColor = getImageDataPixel(bgImageData, x_, y_);
@@ -39,9 +39,9 @@ export function computeTypeContrast(textNodeInfo: TextNodeInfo, bgImageData: Ima
       continue;
     }
 
-    bgColor = util.flattenColors(bgColor, {r:1,g:1,b:1,a:1}); // flatten bgColor on a white matte
+    bgColor = util.flattenColors(bgColor, { r: 1, g: 1, b: 1, a: 1 }); // flatten bgColor on a white matte
     let blendedTextColor = util.mixColors(bgColor, color,
-        color.a * effectiveOpacity);
+      color.a * effectiveOpacity);
 
     let lum1 = util.srgbLuminance(blendedTextColor);
     let lum2 = util.srgbLuminance(bgColor);
