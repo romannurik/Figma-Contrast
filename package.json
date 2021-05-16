@@ -9,8 +9,8 @@
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.23.0",
-    "@types/react": "^17.0.5",
-    "figpack": "file:../lib/figpack"
+    "@types/react": "^16.14.0",
+    "figpack": "^0.1.5"
   },
   "dependencies": {
     "classnames": "^2.2.6",
