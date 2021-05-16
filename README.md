@@ -13,7 +13,7 @@ To try making some changes to the plugin:
 1. Clone the repo and run:
 
        $ npm install
-       $ npm run watch
+       $ npm start
 
    This packages up the plugin in the `dist` folder.
 
