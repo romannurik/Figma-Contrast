@@ -11,7 +11,61 @@ export default function () {
   }
 
   figma.showUI(__html__, { width: 900, height: 600 });
-  generateReport();
+  generateInitialReport();
+
+  messenger.on('selectNode', nodeId => {
+    let node = figma.getNodeById(nodeId) as SceneNode;
+    if (!node) {
+      console.warn(`Node ${nodeId} not found.`);
+      return;
+    }
+
+    figma.currentPage = util.pageContainingNode(node);
+
+    // do some math to ensure that when the selection changes, the newly selected
+    // node will be roughly in the same place in the viewport
+    let selInViewportOffset = null;
+    if (figma.currentPage.selection.length) {
+      let firstSelected = figma.currentPage.selection[0];
+      selInViewportOffset = {
+        x: firstSelected.absoluteTransform[0][2] + firstSelected.width / 2 - figma.viewport.center.x,
+        y: firstSelected.absoluteTransform[1][2] + firstSelected.height / 2 - figma.viewport.center.y,
+      };
+      selInViewportOffset.x = Math.min(figma.viewport.bounds.width / 2, Math.max(-figma.viewport.bounds.width / 2, selInViewportOffset.x));
+      selInViewportOffset.y = Math.min(figma.viewport.bounds.height / 2, Math.max(-figma.viewport.bounds.height / 2, selInViewportOffset.y));
+    }
+    // set the selection
+    figma.currentPage.selection = [node];
+    if (selInViewportOffset) {
+      // adjust the viewport per the comment above
+      let nodeCenter = {
+        x: node.absoluteTransform[0][2] + node.width / 2,
+        y: node.absoluteTransform[1][2] + node.height / 2
+      };
+      figma.viewport.center = {
+        x: nodeCenter.x - selInViewportOffset.x,
+        y: nodeCenter.y - selInViewportOffset.y
+      };
+    } else {
+      figma.viewport.scrollAndZoomIntoView([node]);
+    }
+  });
+
+  messenger.on('regenerateReport', async frameNodeId => {
+    let node = figma.getNodeById(frameNodeId);
+    if (!node) {
+      console.warn(`Node ${frameNodeId} not found.`);
+      return;
+    }
+
+    if (node.type !== 'FRAME') {
+      console.warn(`Node ${frameNodeId} somehow isn't a frame anymore?`);
+      return;
+    }
+
+    let frameReports = await generateReportsForFrames([node]);
+    messenger.send('reportAvailable', { frameReports });
+  });
 }
 
 const EXPORT_SETTINGS: ExportSettings = {
@@ -22,7 +76,7 @@ const EXPORT_SETTINGS: ExportSettings = {
   }
 };
 
-async function generateReport() {
+async function generateInitialReport() {
   let targetNodes = figma.currentPage.selection;
   if (!targetNodes.length) {
     targetNodes = [...figma.currentPage.children];
@@ -40,6 +94,15 @@ async function generateReport() {
     .filter(n => !!n)
   )];
 
+  if (!targetFrames.length) {
+    targetFrames = figma.currentPage.children.filter(node => node.type === 'FRAME') as FrameNode[];
+  }
+
+  let frameReports = await generateReportsForFrames(targetFrames);
+  messenger.send('reportAvailable', { frameReports });
+}
+
+async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<FrameReport[]> {
   // TODO: for multiple top-level frames, return a list
   // TODO: actually find a FrameNode
 
@@ -48,10 +111,11 @@ async function generateReport() {
   //   Math.min(1000, reportNode.height));
 
   // let imageWithTextLayers = await reportNode.exportAsync(EXPORT_SETTINGS);
-  let frameReports = [];
+  let frameReports: FrameReport[] = [];
 
   for (let targetFrame of targetFrames) {
     let dup = targetFrame.clone();
+    let nodeIdMap = mapNodeIds(targetFrame, dup);
     await util.sleep(100);
     let imageWithTextLayers = await dup.exportAsync(EXPORT_SETTINGS);
     let textNodes = [];
@@ -77,18 +141,56 @@ async function generateReport() {
 
     let textNodeInfos: TextNodeInfo[] = textNodes
       .map(({ textNode, effectiveOpacity }: { textNode: TextNode, effectiveOpacity: number }) => {
-        let color: RGBA = null;
-        let paint = textNode.fills[0] as Paint;
-        if (paint && paint.type == 'SOLID') {
-          color = {
-            ...paint.color,
-            a: paint.opacity
+        let textStyleSamples = [];
+
+        let colorsForPaint = (paint: Paint): RGBA[] => {
+          switch (paint.type) {
+            case 'SOLID':
+              return [{
+                ...paint.color,
+                a: paint.opacity
+              }];
+
+            case 'GRADIENT_LINEAR':
+            case 'GRADIENT_RADIAL':
+            case 'GRADIENT_ANGULAR':
+            case 'GRADIENT_DIAMOND':
+              return paint.gradientStops.map(stop => stop.color);
+
+            case 'IMAGE':
+              // TODO: somehow figure out image text fills?
+              return [];
           }
         }
 
-        // TODO: handle "mixed" using textNode.getRange**
-        if (textNode.fontName === figma.mixed || textNode.fontSize === figma.mixed) {
-          return null;
+        let isBold = ({ style }: FontName): boolean => !!style.match(/medium|bold|black/i);
+
+        if (textNode.fontName === figma.mixed
+          || textNode.fontSize === figma.mixed
+          || textNode.fills === figma.mixed) {
+
+          let samples = new Set<string>(); // for de-duping samples
+          for (let i = textNode.characters.length - 1; i >= 0; i--) {
+            for (let color of (textNode.getRangeFills(i, i + 1) as Paint[])
+              .flatMap(paint => colorsForPaint(paint))) {
+              samples.add(JSON.stringify({
+                isBold: isBold(textNode.getRangeFontName(i, i + 1) as FontName),
+                textSize: textNode.getRangeFontSize(i, i + 1) as number,
+                color,
+              } as TextStyleSample));
+            }
+          }
+
+          textStyleSamples = [...samples].map(s => JSON.parse(s) as TextStyleSample);
+        } else {
+          let { fontName, fontSize, fills } = textNode;
+          textStyleSamples = fills
+            .flatMap(paint => colorsForPaint(paint))
+            .map(color => ({
+              isBold: isBold(fontName as FontName),
+              textSize: fontSize as number,
+              color,
+            }));
         }
 
         let textNodeInfo: TextNodeInfo = {
@@ -96,10 +198,9 @@ async function generateReport() {
           y: textNode.absoluteTransform[1][2] - dup.absoluteTransform[1][2],
           w: textNode.width,
           h: textNode.height,
-          isBold: !!(<FontName>textNode.fontName).style.match(/medium|bold|black/i),
-          textSize: textNode.fontSize as number,
-          effectiveOpacity: effectiveOpacity,
-          color
+          nodeId: nodeIdMap.get(textNode.id),
+          textStyleSamples,
+          effectiveOpacity,
         };
 
         textNode.opacity = 0;
@@ -114,9 +215,28 @@ async function generateReport() {
       imageWithTextLayers,
       imageWithoutTextLayers,
       textNodeInfos,
+      frameNodeId: targetFrame.id,
     });
   }
 
-  // push the report
-  messenger.send('reportAvailable', { frameReports });
+  return frameReports;
+}
+
+function mapNodeIds(original, dup): Map<string, string> {
+  let map = new Map<string, string>();
+  let fromIds = [];
+  let toIds = [];
+  util.walk(original, node => fromIds.push(node.id));
+  util.walk(dup, node => toIds.push(node.id));
+
+  if (fromIds.length !== toIds.length) {
+    // TODO: can this ever happen?
+    return map;
+  }
+
+  for (let [idx, id] of toIds.entries()) {
+    map.set(id, fromIds[idx]);
+  }
+
+  return map;
 }

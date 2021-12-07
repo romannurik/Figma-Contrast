@@ -2,9 +2,8 @@ import cn from 'classnames';
 import { createIframeMessenger } from 'figma-messenger';
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Checkbox } from 'react-figma-plugin-ds';
+import { Button, Checkbox } from 'react-figma-plugin-ds';
 import { decodeToImageData } from '../../image-decode-encode';
-import { sleep } from '../../util';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
 import './ui.scss';
 
@@ -15,22 +14,24 @@ type HotSpot = TextNodeInfo & ContrastResult;
 type Benchmark = "aa" | "aaa";
 
 interface FR {
+  frameNodeId: string;
   name: string;
   imageUri: string;
   hotspots: HotSpot[];
 }
 
 function App() {
-  let [frameReports, setFrameReports] = useState([]) as [FR[], React.Dispatch<FR[]>];
-  let [selectedFR, setSelectedFR] = useState(null) as [FR | null, React.Dispatch<FR | null>];
-  let [benchmark, setBenchmark] = useState('aa') as [Benchmark, React.Dispatch<Benchmark>];
+  let [frameReports, setFrameReports] = useState<FR[]>([]);
+  let [selectedFR, setSelectedFR] = useState<FR | null>(null);
+  let [benchmark, setBenchmark] = useState<Benchmark>('aa');
   let [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     messenger.on('reportAvailable', async report => {
-      let frameReports: FR[] = [];
+      // called when either the initial or a refreshed report is available
+      let newFrameReports: FR[] = [...frameReports];
       for (let frame of report.frameReports) {
-        let { name, imageWithoutTextLayers, imageWithTextLayers, textNodeInfos } = frame;
+        let { frameNodeId, name, imageWithoutTextLayers, imageWithTextLayers, textNodeInfos } = frame;
         let bgImageData = await decodeToImageData(imageWithoutTextLayers);
         let imageUri = urlForImageBytes(imageWithTextLayers);
         let hotspots: HotSpot[] = [];
@@ -42,14 +43,25 @@ function App() {
           });
         }
 
-        frameReports.push({ name, imageUri, hotspots });
+        let fr = { frameNodeId, name, imageUri, hotspots };
+        let existingIndex = newFrameReports.findIndex(({ frameNodeId }) => frameNodeId === fr.frameNodeId);
+        if (existingIndex >= 0) {
+          newFrameReports.splice(existingIndex, 1, fr);
+        } else {
+          newFrameReports.push(fr);
+        }
       }
 
       setLoaded(true);
-      setSelectedFR(frameReports[0]);
-      setFrameReports(frameReports);
+      setFrameReports(newFrameReports);
+      if (selectedFR) {
+        setSelectedFR(newFrameReports.find(({ frameNodeId }) => frameNodeId === selectedFR.frameNodeId));
+      } else {
+        setSelectedFR(newFrameReports[0]);
+      }
     });
-  }, []);
+    return () => messenger.off('reportAvailable');
+  }, [selectedFR, frameReports]);
 
   if (!loaded) {
     return <div className="loading-spinner">Generating contrast report&hellip;</div>;
@@ -66,6 +78,11 @@ function App() {
           defaultValue={benchmark === bm}
           onChange={() => setBenchmark(bm)} />
       )}
+      <div style={{ flex: 1 }} />
+      {selectedFR && <Button
+        onClick={() => messenger.send('regenerateReport', selectedFR.frameNodeId)}>
+        Refresh this frame
+      </Button>}
     </div>
     <div className="main">
       {frameReports.length >= 2 && <FrameReportList
@@ -80,7 +97,9 @@ function App() {
   </>;
 }
 
-function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }) {
+function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }:
+  { frameReports: FR[], benchmark: Benchmark, selectedItem: FR | null, onSelectItem: (fr: FR) => any }) {
+
   return <div className="frame-list">
     {frameReports.map((fr, i) => {
       let scoresByStatus = {};
@@ -104,7 +123,7 @@ function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }
   </div>;
 }
 
-function ReportScreenshot({ frameReport, benchmark }) {
+function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchmark: Benchmark }) {
   let previewRef = useRef() as React.RefObject<HTMLDivElement>;
   let previewContentRef = useRef() as React.RefObject<HTMLDivElement>;
 
@@ -125,16 +144,17 @@ function ReportScreenshot({ frameReport, benchmark }) {
       previewRef.current.offsetWidth,
       previewRef.current.offsetHeight);
 
-    previewContentRef.current.style.zoom = `${fittedSize.scaleFactor}`;
+    previewContentRef.current.style.setProperty('zoom', `${fittedSize.scaleFactor}`);
     previewContentRef.current.style.setProperty('--zoom', `${fittedSize.scaleFactor}`);
   }
 
   return <div className="preview" ref={previewRef}>
     {frameReport && <div className="preview-content" ref={previewContentRef}>
       <img src={frameReport.imageUri} onLoad={() => resize()} />
-      {frameReport.hotspots.map(({ x, y, w, h, aa, aaa }, i) => {
+      {frameReport.hotspots.map(({ x, y, w, h, nodeId, aa, aaa }, i) => {
         let { note, contrastRatio, status } = (benchmark === 'aa') ? aa : aaa;
         return <div className={cn('text-node-hotspot', `status-${status}`)}
+          onClick={() => messenger.send('selectNode', nodeId)}
           key={i}
           style={{
             left: x,

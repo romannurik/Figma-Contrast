@@ -2,7 +2,7 @@
 
 $color-pass: #1bc47d; // same as --figma-green
 $color-fail: #f24822; // same as --figma-red
-$color-mixed: #F29900;
+$color-mixed: #f29900;
 
 body {
   width: 100%;
@@ -69,7 +69,7 @@ body {
 
 .frame-list-item-score {
   display: flex;
-  flex-direction: row;;
+  flex-direction: row;
   margin: 0 -2px -2px -2px;
 
   > * {
@@ -79,19 +79,19 @@ body {
   }
 
   .score-pass {
-    background-color: rgba($color-pass, .1);
+    background-color: rgba($color-pass, 0.1);
     color: $color-pass;
   }
 
   .score-mixed,
   .score-unknown {
-    background-color: rgba($color-mixed, .1);
+    background-color: rgba($color-mixed, 0.1);
     color: $color-mixed;
   }
 
   .score-fail {
     border-radius: 2px;
-    background-color: rgba($color-fail, .1);
+    background-color: rgba($color-fail, 0.1);
     color: $color-fail;
   }
 }
@@ -119,6 +119,7 @@ body {
     span {
       display: block;
     }
+    outline: calc(1px / var(--zoom, 1)) solid var(--blue);
   }
 
   span {
@@ -128,19 +129,27 @@ body {
     font-size: calc(10px / var(--zoom, 1));
     font-weight: bold;
     color: #fff;
-    text-shadow: 0 1px 2px rgba(#000, .5);
+    text-shadow: 0 1px 2px rgba(#000, 0.5),
+      //
+      calc(-1px / var(--zoom, 1)) calc(-1px / var(--zoom, 1)) 0 #000,
+      //
+      calc(1px / var(--zoom, 1)) calc(-1px / var(--zoom, 1)) 0 #000,
+      //
+      calc(-1px / var(--zoom, 1)) calc(1px / var(--zoom, 1)) 0 #000,
+      //
+      calc(1px / var(--zoom, 1)) calc(1px / var(--zoom, 1)) 0 #000;
   }
 
   &.status-fail {
-    background-color: rgba($color-fail, .4);
+    background-color: rgba($color-fail, 0.4);
   }
 
   &.status-mixed,
   &.status-unknown {
-    background-color: rgba($color-mixed, .4);
+    background-color: rgba($color-mixed, 0.4);
   }
 
   &.status-pass {
-    background-color: rgba($color-pass, .4);
+    background-color: rgba($color-pass, 0.4);
   }
 }

@@ -1,5 +1,6 @@
 interface ReportIframeToMain {
-  cancel();
+  regenerateReport(frameNodeId: string);
+  selectNode(nodeId: string);
 }
 
 interface ReportMainToIframe {
@@ -7,10 +8,17 @@ interface ReportMainToIframe {
 }
 
 interface FrameReport {
+  frameNodeId: string;
   name: string;
   imageWithTextLayers: Uint8Array;
   imageWithoutTextLayers: Uint8Array;
   textNodeInfos: TextNodeInfo[];
+}
+
+interface TextStyleSample {
+  color: RGBA;
+  isBold: boolean;
+  textSize: number;
 }
 
 interface TextNodeInfo {
@@ -18,9 +26,8 @@ interface TextNodeInfo {
   y: number;
   w: number;
   h: number;
-  color: RGBA;
-  isBold: boolean;
-  textSize: number;
+  nodeId: string;
+  textStyleSamples: TextStyleSample[];
   effectiveOpacity: number;
 }
 

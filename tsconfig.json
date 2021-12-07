@@ -5,6 +5,7 @@
     "allowSyntheticDefaultImports": true,
     "lib": [
       "es2017.object",
+      "es2019",
       "es6",
       "dom"
     ],

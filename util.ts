@@ -9,6 +9,13 @@ export function walk(node: BaseNode, fn: Function, context?: any) {
 }
 
 
+export function pageContainingNode(node: BaseNode) {
+  while (node && node.type !== 'PAGE') {
+    node = node.parent;
+  }
+  return node.type === 'PAGE' ? node : null;
+}
+
 /**
  * Mixes the given colors (RGBA dicts) at the given amount (0 to 1).
  */
