@@ -51,15 +51,15 @@ export default function () {
     }
   });
 
-  messenger.on('regenerateReport', async frameNodeId => {
-    let node = figma.getNodeById(frameNodeId);
+  messenger.on('regenerateReport', async nodeId => {
+    let node = figma.getNodeById(nodeId);
     if (!node) {
-      console.warn(`Node ${frameNodeId} not found.`);
+      console.warn(`Node ${nodeId} not found.`);
       return;
     }
 
     if (node.type !== 'FRAME') {
-      console.warn(`Node ${frameNodeId} somehow isn't a frame anymore?`);
+      console.warn(`Node ${nodeId} somehow isn't a frame anymore?`);
       return;
     }
 
@@ -70,6 +70,7 @@ export default function () {
 
 const EXPORT_SETTINGS: ExportSettings = {
   format: 'PNG',
+  contentsOnly: false,
   constraint: {
     type: 'SCALE',
     value: 1
@@ -215,7 +216,9 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
       imageWithTextLayers,
       imageWithoutTextLayers,
       textNodeInfos,
-      frameNodeId: targetFrame.id,
+      nodeId: targetFrame.id,
+      width: targetFrame.width,
+      height: targetFrame.height,
     });
   }
 

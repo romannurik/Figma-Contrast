@@ -1,11 +1,12 @@
 import cn from 'classnames';
 import { createIframeMessenger } from 'figma-messenger';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Button, Checkbox } from 'react-figma-plugin-ds';
 import { decodeToImageData } from '../../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
 import './ui.scss';
+import { useResizeObserver } from './useResizeObserver';
 
 const messenger = createIframeMessenger<ReportIframeToMain, ReportMainToIframe>();
 
@@ -14,8 +15,10 @@ type HotSpot = TextNodeInfo & ContrastResult;
 type Benchmark = "aa" | "aaa";
 
 interface FR {
-  frameNodeId: string;
   name: string;
+  nodeId: string;
+  width: number;
+  height: number;
   imageUri: string;
   hotspots: HotSpot[];
 }
@@ -31,7 +34,10 @@ function App() {
       // called when either the initial or a refreshed report is available
       let newFrameReports: FR[] = [...frameReports];
       for (let frame of report.frameReports) {
-        let { frameNodeId, name, imageWithoutTextLayers, imageWithTextLayers, textNodeInfos } = frame;
+        let {
+          nodeId, width, height, name,
+          imageWithoutTextLayers, imageWithTextLayers, textNodeInfos
+        } = frame;
         let bgImageData = await decodeToImageData(imageWithoutTextLayers);
         let imageUri = urlForImageBytes(imageWithTextLayers);
         let hotspots: HotSpot[] = [];
@@ -43,8 +49,8 @@ function App() {
           });
         }
 
-        let fr = { frameNodeId, name, imageUri, hotspots };
-        let existingIndex = newFrameReports.findIndex(({ frameNodeId }) => frameNodeId === fr.frameNodeId);
+        let fr = { nodeId, name, imageUri, hotspots, width, height };
+        let existingIndex = newFrameReports.findIndex(({ nodeId }) => nodeId === fr.nodeId);
         if (existingIndex >= 0) {
           newFrameReports.splice(existingIndex, 1, fr);
         } else {
@@ -55,7 +61,7 @@ function App() {
       setLoaded(true);
       setFrameReports(newFrameReports);
       if (selectedFR) {
-        setSelectedFR(newFrameReports.find(({ frameNodeId }) => frameNodeId === selectedFR.frameNodeId));
+        setSelectedFR(newFrameReports.find(({ nodeId }) => nodeId === selectedFR.nodeId));
       } else {
         setSelectedFR(newFrameReports[0]);
       }
@@ -80,7 +86,7 @@ function App() {
       )}
       <div style={{ flex: 1 }} />
       {selectedFR && <Button
-        onClick={() => messenger.send('regenerateReport', selectedFR.frameNodeId)}>
+        onClick={() => messenger.send('regenerateReport', selectedFR.nodeId)}>
         Refresh this frame
       </Button>}
     </div>
@@ -124,33 +130,73 @@ function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }
 }
 
 function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchmark: Benchmark }) {
-  let previewRef = useRef() as React.RefObject<HTMLDivElement>;
-  let previewContentRef = useRef() as React.RefObject<HTMLDivElement>;
+  let [previewNode, setPreviewNode] = useState<HTMLDivElement>();
+  let [previewContentNode, setPreviewContentNode] = useState<HTMLDivElement>();
+  let [translate, setTranslate] = useState<Vector>({ x: 0, y: 0 });
+  let [zoom, setZoom] = useState<number>(1);
+  let [isDragging, setIsDragging] = useState<boolean>(false);
+
+  useResizeObserver(() => {
+    resize();
+  }, previewNode);
 
   useEffect(() => {
-    let listener = () => resize();
-    window.addEventListener('resize', listener);
-    return () => window.removeEventListener('resize', listener);
-  }, []);
+    setZoom(1);
+    setTranslate({ x: 0, y: 0 });
+    setTimeout(resize);
+  }, [frameReport.nodeId]);
 
   function resize() {
-    if (!previewContentRef.current || !previewRef.current) {
+    console.log('resize');
+    if (!previewContentNode || !previewNode) {
       return;
     }
 
     let fittedSize = fitted(
-      previewContentRef.current.offsetWidth,
-      previewContentRef.current.offsetHeight,
-      previewRef.current.offsetWidth,
-      previewRef.current.offsetHeight);
+      previewContentNode.offsetWidth,
+      previewContentNode.offsetHeight,
+      previewNode.offsetWidth,
+      previewNode.offsetHeight);
 
-    previewContentRef.current.style.setProperty('zoom', `${fittedSize.scaleFactor}`);
-    previewContentRef.current.style.setProperty('--zoom', `${fittedSize.scaleFactor}`);
+    if (zoom === 1) {
+      setZoom(fittedSize.scaleFactor);
+    }
   }
 
-  return <div className="preview" ref={previewRef}>
-    {frameReport && <div className="preview-content" ref={previewContentRef}>
-      <img src={frameReport.imageUri} onLoad={() => resize()} />
+  return <div className={cn('preview', { 'is-dragging': isDragging })}
+    ref={node => setPreviewNode(node)}
+    onWheel={ev => {
+      setZoom(Math.max(0.1, Math.min(10, zoom * (1.01 ** -ev.deltaY))));
+    }}
+    onPointerDown={ev => {
+      ev.preventDefault();
+      let down = { x: ev.clientX, y: ev.clientY };
+      setIsDragging(true);
+      let move_ = (ev: PointerEvent) => {
+        setTranslate({
+          x: translate.x + (ev.clientX - down.x) / zoom,
+          y: translate.y + (ev.clientY - down.y) / zoom,
+        });
+      };
+      let up_ = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', move_);
+        window.removeEventListener('pointerup', up_);
+        window.removeEventListener('pointercancel', up_);
+        setIsDragging(false);
+      };
+      window.addEventListener('pointermove', move_);
+      window.addEventListener('pointerup', up_);
+      window.addEventListener('pointercancel', up_);
+    }}>
+    {frameReport && <div className="preview-content"
+      style={{
+        transform: `translate(${translate.x}px, ${translate.y}px)`,
+        zoom,
+        '--zoom': String(zoom),
+      } as CSSProperties}
+      ref={node => setPreviewContentNode(node)}>
+      <img src={frameReport.imageUri} width={frameReport.width} height={frameReport.height}
+        onLoad={() => setTimeout(resize)} />
       {frameReport.hotspots.map(({ x, y, w, h, nodeId, aa, aaa }, i) => {
         let { note, contrastRatio, status } = (benchmark === 'aa') ? aa : aaa;
         return <div className={cn('text-node-hotspot', `status-${status}`)}

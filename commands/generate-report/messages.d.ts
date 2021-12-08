@@ -1,5 +1,5 @@
 interface ReportIframeToMain {
-  regenerateReport(frameNodeId: string);
+  regenerateReport(nodeId: string);
   selectNode(nodeId: string);
 }
 
@@ -8,7 +8,9 @@ interface ReportMainToIframe {
 }
 
 interface FrameReport {
-  frameNodeId: string;
+  nodeId: string;
+  width: number;
+  height: number;
   name: string;
   imageWithTextLayers: Uint8Array;
   imageWithoutTextLayers: Uint8Array;

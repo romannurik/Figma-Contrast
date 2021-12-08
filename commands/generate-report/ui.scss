@@ -102,11 +102,21 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  user-select: none;
+  cursor: -webkit-grab;
+
+  &.is-dragging {
+    cursor: -webkit-grabbing;
+  }
 }
 
 .preview-content {
   display: flex;
   position: relative;
+
+  img {
+    pointer-events: none;
+  }
 }
 
 .text-node-hotspot {
@@ -114,6 +124,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: default;
 
   &:hover {
     span {
