@@ -1,10 +1,11 @@
 import cn from 'classnames';
 import { createIframeMessenger } from 'figma-messenger';
-import React, { CSSProperties, useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Button, Checkbox } from 'react-figma-plugin-ds';
 import { decodeToImageData } from '../../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
+import { ResizeHandleImage } from './images/resize-handle';
 import './ui.scss';
 import { useResizeObserver } from './useResizeObserver';
 
@@ -70,7 +71,10 @@ function App() {
   }, [selectedFR, frameReports]);
 
   if (!loaded) {
-    return <div className="loading-spinner">Generating contrast report&hellip;</div>;
+    return <div className="loading-spinner">
+      Generating contrast report&hellip;
+      <ResizeHandle />
+    </div>;
   }
 
   return <>
@@ -100,7 +104,34 @@ function App() {
         frameReport={selectedFR}
         benchmark={benchmark} />}
     </div>
+    <ResizeHandle />
   </>;
+}
+
+function ResizeHandle() {
+  return <div className="resize-handle"
+    onPointerDown={ev => {
+      ev.preventDefault();
+      let down = { x: ev.clientX, y: ev.clientY };
+      let downSize = { width: window.innerWidth, height: window.innerHeight };
+      let move_ = (ev: PointerEvent) => {
+        let newSize = {
+          width: downSize.width + (ev.clientX - down.x),
+          height: downSize.height + (ev.clientY - down.y)
+        };
+        messenger.send('resize', newSize.width, newSize.height);
+      };
+      let up_ = (ev: PointerEvent) => {
+        window.removeEventListener('pointermove', move_);
+        window.removeEventListener('pointerup', up_);
+        window.removeEventListener('pointercancel', up_);
+      };
+      window.addEventListener('pointermove', move_);
+      window.addEventListener('pointerup', up_);
+      window.addEventListener('pointercancel', up_);
+    }}>
+    <ResizeHandleImage />
+  </div>;
 }
 
 function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }:
@@ -135,20 +166,19 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
   let [translate, setTranslate] = useState<Vector>({ x: 0, y: 0 });
   let [zoom, setZoom] = useState<number>(1);
   let [isDragging, setIsDragging] = useState<boolean>(false);
+  let [isViewportModified, setViewportModified] = useState<boolean>(false);
 
-  useResizeObserver(() => {
-    resize();
-  }, previewNode);
+  useResizeObserver(() => resize(), previewNode);
 
   useEffect(() => {
     setZoom(1);
     setTranslate({ x: 0, y: 0 });
+    setViewportModified(false);
     setTimeout(resize);
   }, [frameReport.nodeId]);
 
   function resize() {
-    console.log('resize');
-    if (!previewContentNode || !previewNode) {
+    if (isViewportModified || !previewContentNode || !previewNode) {
       return;
     }
 
@@ -158,15 +188,14 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
       previewNode.offsetWidth,
       previewNode.offsetHeight);
 
-    if (zoom === 1) {
-      setZoom(fittedSize.scaleFactor);
-    }
+    setZoom(fittedSize.scaleFactor);
   }
 
   return <div className={cn('preview', { 'is-dragging': isDragging })}
     ref={node => setPreviewNode(node)}
     onWheel={ev => {
       setZoom(Math.max(0.1, Math.min(10, zoom * (1.01 ** -ev.deltaY))));
+      setViewportModified(true);
     }}
     onPointerDown={ev => {
       ev.preventDefault();
@@ -177,6 +206,7 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
           x: translate.x + (ev.clientX - down.x) / zoom,
           y: translate.y + (ev.clientY - down.y) / zoom,
         });
+        setViewportModified(true);
       };
       let up_ = (ev: PointerEvent) => {
         window.removeEventListener('pointermove', move_);

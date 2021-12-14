@@ -3,6 +3,8 @@ import * as util from '../../util';
 
 const messenger = createMainThreadMessenger<ReportMainToIframe, ReportIframeToMain>();
 
+const WINDOW_SIZE_KEY = 'size';
+
 export default function () {
   if (!figma.currentPage.children.length) {
     figma.notify('Nothing to report!');
@@ -10,8 +12,18 @@ export default function () {
     return;
   }
 
-  figma.showUI(__html__, { width: 900, height: 600 });
-  generateInitialReport();
+  (async () => {
+    let size = await figma.clientStorage.getAsync(WINDOW_SIZE_KEY) || { width: 900, height: 600 };
+    figma.showUI(__html__, { ...size });
+    generateInitialReport();
+  })();
+
+  messenger.on('resize', (width, height) => {
+    width = Math.ceil(width);
+    height = Math.ceil(height);
+    figma.ui.resize(width, height);
+    figma.clientStorage.setAsync(WINDOW_SIZE_KEY, { width, height });
+  });
 
   messenger.on('selectNode', nodeId => {
     let node = figma.getNodeById(nodeId) as SceneNode;

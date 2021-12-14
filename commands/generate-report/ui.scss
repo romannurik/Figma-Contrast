@@ -33,6 +33,14 @@ body {
   border-bottom: 1px solid var(--silver);
 }
 
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 4px;
+  cursor: se-resize;
+}
+
 .main {
   flex: 1 1 0;
   display: flex;
