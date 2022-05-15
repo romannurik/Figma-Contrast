@@ -1,13 +1,3 @@
-interface ReportIframeToMain {
-  regenerateReport(nodeId: string);
-  selectNode(nodeId: string);
-  resize(width: number, height: number);
-}
-
-interface ReportMainToIframe {
-  reportAvailable(report: { frameReports: FrameReport[] });
-}
-
 interface FrameReport {
   nodeId: string;
   width: number;

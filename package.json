@@ -2,21 +2,36 @@
   "name": "contrast-figma-plugin",
   "version": "1.0.0",
   "scripts": {
-    "build:google": "PLUGIN_ID=815459412677630743 figpack",
-    "start:google": "PLUGIN_ID=815459412677630743 figpack --watch",
-    "build": "PLUGIN_ID=911262488575486588 figpack",
-    "start": "PLUGIN_ID=911262488575486588 figpack --watch"
+    "OLD_build:google": "PLUGIN_ID=815459412677630743 figpack",
+    "OLD_start:google": "PLUGIN_ID=815459412677630743 figpack --watch",
+    "OLD_build": "PLUGIN_ID=911262488575486588 figpack",
+    "OLD_start": "PLUGIN_ID=911262488575486588 figpack --watch",
+    "build": "build-figma-plugin --typecheck --minify",
+    "start": "build-figma-plugin --typecheck --watch"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "^1.23.0",
-    "@types/react": "^16.14.0",
-    "figpack": "^0.1.5"
+    "@create-figma-plugin/build": "^1.9.2",
+    "@create-figma-plugin/tsconfig": "^1.9.2",
+    "@figma/plugin-typings": "^1.47.0",
+    "postcss": "^8.4.13",
+    "postcss-nested": "^5.0.6",
+    "typescript": "^4"
   },
   "dependencies": {
-    "classnames": "^2.2.6",
-    "figma-messenger": "^1.0.5",
-    "react": "^16.13.0",
-    "react-dom": "^16.13.0",
-    "react-figma-plugin-ds": "^2.2.0"
+    "@create-figma-plugin/ui": "^1.9.2",
+    "@create-figma-plugin/utilities": "^1.9.2",
+    "preact": "^10",
+    "classnames": "^2.2.6"
+  },
+  "figma-plugin": {
+    "name": "Contrast",
+    "menu": [
+      {
+        "name": "Generate contrast report",
+        "main": "./commands/generate-report",
+        "ui": "./commands/generate-report/ui.tsx"
+      }
+    ],
+    "id": "911262488575486588"
   }
 }

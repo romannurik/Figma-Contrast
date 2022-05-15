@@ -1,7 +1,5 @@
-import { createMainThreadMessenger } from 'figma-messenger';
+import { emit, on, showUI } from '@create-figma-plugin/utilities';
 import * as util from '../../util';
-
-const messenger = createMainThreadMessenger<ReportMainToIframe, ReportIframeToMain>();
 
 const WINDOW_SIZE_KEY = 'size';
 
@@ -14,25 +12,36 @@ export default function () {
 
   (async () => {
     let size = await figma.clientStorage.getAsync(WINDOW_SIZE_KEY) || { width: 900, height: 600 };
-    figma.showUI(__html__, { ...size });
-    generateInitialReport();
+    let { allOnPage, targetFrames } = identifyTargetFrames();
+    let subject = `page "${figma.currentPage.name}"`;
+    if (!allOnPage) {
+      subject = targetFrames.length === 1
+        ? `frame "${targetFrames[0].name}"`
+        : `${targetFrames.length} frames`;
+    }
+    showUI({
+      title: `Contrast for ${subject}`,
+      ...size
+    });
+    let frameReports = await generateReportsForFrames(targetFrames);
+    emit('REPORT_AVAILABLE', { frameReports });
   })();
 
-  messenger.on('resize', (width, height) => {
+  on('RESIZE', (width, height) => {
     width = Math.ceil(width);
     height = Math.ceil(height);
     figma.ui.resize(width, height);
     figma.clientStorage.setAsync(WINDOW_SIZE_KEY, { width, height });
   });
 
-  messenger.on('selectNode', nodeId => {
+  on('SELECT_NODE', nodeId => {
     let node = figma.getNodeById(nodeId) as SceneNode;
     if (!node) {
       console.warn(`Node ${nodeId} not found.`);
       return;
     }
 
-    figma.currentPage = util.pageContainingNode(node);
+    figma.currentPage = util.pageContainingNode(node)!;
 
     // do some math to ensure that when the selection changes, the newly selected
     // node will be roughly in the same place in the viewport
@@ -63,7 +72,7 @@ export default function () {
     }
   });
 
-  messenger.on('regenerateReport', async nodeId => {
+  on('REGENERATE_REPORT', async nodeId => {
     let node = figma.getNodeById(nodeId);
     if (!node) {
       console.warn(`Node ${nodeId} not found.`);
@@ -76,8 +85,37 @@ export default function () {
     }
 
     let frameReports = await generateReportsForFrames([node]);
-    messenger.send('reportAvailable', { frameReports });
+    emit('REPORT_AVAILABLE', { frameReports });
   });
+}
+
+function identifyTargetFrames(): { targetFrames: FrameNode[], allOnPage: boolean } {
+  let targetNodes = figma.currentPage.selection;
+  let allOnPage = false;
+  if (!targetNodes.length) {
+    targetNodes = [...figma.currentPage.children];
+    allOnPage = true;
+  }
+
+  // find all top-level frames to report on
+  let targetFrames: FrameNode[] = [...new Set(
+    targetNodes
+      .map((selectedNode: SceneNode) => {
+        let node: SceneNode = selectedNode;
+        while (node?.parent?.type !== 'PAGE') {
+          node = node.parent as SceneNode;
+        }
+        return (node?.type === 'FRAME') ? node as FrameNode : null;
+      })
+      .filter(n => !!n)
+  )] as FrameNode[];
+
+  if (!targetFrames.length) {
+    targetFrames = figma.currentPage.children.filter(node => node.type === 'FRAME') as FrameNode[];
+    allOnPage = true;
+  }
+
+  return { targetFrames, allOnPage };
 }
 
 const EXPORT_SETTINGS: ExportSettings = {
@@ -89,41 +127,10 @@ const EXPORT_SETTINGS: ExportSettings = {
   }
 };
 
-async function generateInitialReport() {
-  let targetNodes = figma.currentPage.selection;
-  if (!targetNodes.length) {
-    targetNodes = [...figma.currentPage.children];
-  }
-
-  // find all top-level frames to report on
-  let targetFrames: FrameNode[] = [...new Set(targetNodes
-    .map((selectedNode: SceneNode) => {
-      let node: BaseNode = selectedNode;
-      while (node && node.parent.type != 'PAGE') {
-        node = node.parent;
-      }
-      return (!node || node.type != 'FRAME') ? null : (node as FrameNode);
-    })
-    .filter(n => !!n)
-  )];
-
-  if (!targetFrames.length) {
-    targetFrames = figma.currentPage.children.filter(node => node.type === 'FRAME') as FrameNode[];
-  }
-
-  let frameReports = await generateReportsForFrames(targetFrames);
-  messenger.send('reportAvailable', { frameReports });
-}
-
 async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<FrameReport[]> {
   // TODO: for multiple top-level frames, return a list
   // TODO: actually find a FrameNode
 
-  // figma.ui.resize(
-  //   Math.min(1000, reportNode.width),
-  //   Math.min(1000, reportNode.height));
-
-  // let imageWithTextLayers = await reportNode.exportAsync(EXPORT_SETTINGS);
   let frameReports: FrameReport[] = [];
 
   for (let targetFrame of targetFrames) {
@@ -131,10 +138,10 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
     let nodeIdMap = mapNodeIds(targetFrame, dup);
     await util.sleep(100);
     let imageWithTextLayers = await dup.exportAsync(EXPORT_SETTINGS);
-    let textNodes = [];
+    let textNodes: { textNode: TextNode, effectiveOpacity: number }[] = [];
 
     util.walk(dup, (node, { opacity }) => {
-      if (node.opacity) {
+      if ('opacity' in node && node.opacity) {
         opacity *= node.opacity;
       }
       if (node.type == 'TEXT' && !!node.visible) {
@@ -144,7 +151,7 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
           effectiveOpacity: opacity * node.opacity
         });
       }
-      if (!node.visible) {
+      if (!('visible' in node) || !node.visible) {
         return 'skipchildren';
       }
       return { opacity }; // context for children
@@ -161,7 +168,7 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
             case 'SOLID':
               return [{
                 ...paint.color,
-                a: paint.opacity
+                a: paint.opacity === undefined ? 1 : paint.opacity
               }];
 
             case 'GRADIENT_LINEAR':
@@ -211,7 +218,7 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
           y: textNode.absoluteTransform[1][2] - dup.absoluteTransform[1][2],
           w: textNode.width,
           h: textNode.height,
-          nodeId: nodeIdMap.get(textNode.id),
+          nodeId: nodeIdMap.get(textNode.id)!,
           textStyleSamples,
           effectiveOpacity,
         };
@@ -237,10 +244,13 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
   return frameReports;
 }
 
-function mapNodeIds(original, dup): Map<string, string> {
+function mapNodeIds(original: BaseNode, dup: BaseNode): Map<string, string> {
   let map = new Map<string, string>();
-  let fromIds = [];
-  let toIds = [];
+  let fromIds: string[] = [];
+  let toIds: string[] = [];
+
+  // walking the original and the duplicate should
+  // always return corresponding nodes in the same order
   util.walk(original, node => fromIds.push(node.id));
   util.walk(dup, node => toIds.push(node.id));
 

@@ -1,14 +1,16 @@
 {
-  "name": "Contrast",
   "api": "1.0.0",
-  "id": "%%PLUGIN_ID%%",
   "editorType": [
     "figma"
   ],
+  "id": "911262488575486588",
+  "name": "Contrast",
+  "main": "build/main.js",
+  "ui": "build/ui.js",
   "menu": [
     {
       "name": "Generate contrast report",
-      "command": "generate-report"
+      "command": "./commands/generate-report--default"
     }
   ]
 }

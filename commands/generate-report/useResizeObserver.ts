@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
-export function useResizeObserver(callback: () => any, node: HTMLElement) {
+export function useResizeObserver(callback: () => any, node: HTMLElement | undefined) {
   const cb = useRef<Function>(); // kinda hacky
   cb.current = callback;
 
@@ -9,7 +9,7 @@ export function useResizeObserver(callback: () => any, node: HTMLElement) {
       return;
     }
 
-    cb.current();
+    cb.current && cb.current();
   }), [node]);
 
   useLayoutEffect(() => {

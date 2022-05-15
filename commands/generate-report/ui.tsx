@@ -1,15 +1,13 @@
+import '!./ui.css';
+import { Container, IconButton, IconSwap32, LoadingIndicator, render, SegmentedControl } from '@create-figma-plugin/ui';
+import { emit, on } from '@create-figma-plugin/utilities';
 import cn from 'classnames';
-import { createIframeMessenger } from 'figma-messenger';
-import React, { CSSProperties, useEffect, useState } from 'react';
-import ReactDOM from 'react-dom';
-import { Button, Checkbox } from 'react-figma-plugin-ds';
+import { Fragment, h } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 import { decodeToImageData } from '../../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
-import { ResizeHandleImage } from './images/resize-handle';
-import './ui.scss';
+import IconResizeHandle12 from './images/IconResizeHandle12';
 import { useResizeObserver } from './useResizeObserver';
-
-const messenger = createIframeMessenger<ReportIframeToMain, ReportMainToIframe>();
 
 type HotSpot = TextNodeInfo & ContrastResult;
 
@@ -24,14 +22,14 @@ interface FR {
   hotspots: HotSpot[];
 }
 
-function App() {
+function Plugin() {
   let [frameReports, setFrameReports] = useState<FR[]>([]);
   let [selectedFR, setSelectedFR] = useState<FR | null>(null);
   let [benchmark, setBenchmark] = useState<Benchmark>('aa');
   let [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    messenger.on('reportAvailable', async report => {
+    let unsub = on('REPORT_AVAILABLE', async report => {
       // called when either the initial or a refreshed report is available
       let newFrameReports: FR[] = [...frameReports];
       for (let frame of report.frameReports) {
@@ -62,37 +60,38 @@ function App() {
       setLoaded(true);
       setFrameReports(newFrameReports);
       if (selectedFR) {
-        setSelectedFR(newFrameReports.find(({ nodeId }) => nodeId === selectedFR.nodeId));
+        setSelectedFR(newFrameReports.find(({ nodeId }) => nodeId === selectedFR!.nodeId)!);
       } else {
         setSelectedFR(newFrameReports[0]);
       }
     });
-    return () => messenger.off('reportAvailable');
+    return () => unsub();
   }, [selectedFR, frameReports]);
 
   if (!loaded) {
-    return <div className="loading-spinner">
-      Generating contrast report&hellip;
+    return <>
+      <div className="loading-spinner">
+        <LoadingIndicator />
+        Generating contrast report&hellip;
+      </div>
       <ResizeHandle />
-    </div>;
+    </>;
   }
 
   return <>
     <div className="toolbar">
-      {(['aa', 'aaa'] as Benchmark[]).map(bm =>
-        <Checkbox
-          type="radio"
-          key={bm}
-          label={bm.toUpperCase()}
-          name="benchmark"
-          defaultValue={benchmark === bm}
-          onChange={() => setBenchmark(bm)} />
-      )}
+      <SegmentedControl
+        value={benchmark}
+        options={[
+          { value: 'aa', children: <Container>AA</Container> },
+          { value: 'aaa', children: <Container>AAA</Container> },
+        ]}
+        onValueChange={value => setBenchmark(value)} />
       <div style={{ flex: 1 }} />
-      {selectedFR && <Button
-        onClick={() => messenger.send('regenerateReport', selectedFR.nodeId)}>
-        Refresh this frame
-      </Button>}
+      {selectedFR && <IconButton value={false}
+        onClick={() => emit('REGENERATE_REPORT', selectedFR!.nodeId)}>
+        <IconSwap32 />
+      </IconButton>}
     </div>
     <div className="main">
       {frameReports.length >= 2 && <FrameReportList
@@ -119,7 +118,7 @@ function ResizeHandle() {
           width: downSize.width + (ev.clientX - down.x),
           height: downSize.height + (ev.clientY - down.y)
         };
-        messenger.send('resize', newSize.width, newSize.height);
+        emit('RESIZE', newSize.width, newSize.height);
       };
       let up_ = (ev: PointerEvent) => {
         window.removeEventListener('pointermove', move_);
@@ -130,7 +129,7 @@ function ResizeHandle() {
       window.addEventListener('pointerup', up_);
       window.addEventListener('pointercancel', up_);
     }}>
-    <ResizeHandleImage />
+    <IconResizeHandle12 />
   </div>;
 }
 
@@ -139,7 +138,7 @@ function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }
 
   return <div className="frame-list">
     {frameReports.map((fr, i) => {
-      let scoresByStatus = {};
+      let scoresByStatus: { [status: string]: number } = {};
       for (let hotspot of fr.hotspots) {
         let contrastResult = hotspot as ContrastResult;
         let { status } = (benchmark === 'aa') ? contrastResult.aa : contrastResult.aaa;
@@ -192,7 +191,7 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
   }
 
   return <div className={cn('preview', { 'is-dragging': isDragging })}
-    ref={node => setPreviewNode(node)}
+    ref={node => node !== previewNode && setPreviewNode(node!)}
     onWheel={ev => {
       setZoom(Math.max(0.1, Math.min(10, zoom * (1.01 ** -ev.deltaY))));
       setViewportModified(true);
@@ -208,7 +207,7 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
         });
         setViewportModified(true);
       };
-      let up_ = (ev: PointerEvent) => {
+      let up_ = () => {
         window.removeEventListener('pointermove', move_);
         window.removeEventListener('pointerup', up_);
         window.removeEventListener('pointercancel', up_);
@@ -223,20 +222,20 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
         transform: `translate(${translate.x}px, ${translate.y}px)`,
         zoom,
         '--zoom': String(zoom),
-      } as CSSProperties}
-      ref={node => setPreviewContentNode(node)}>
+      }}
+      ref={node => node !== previewContentNode && setPreviewContentNode(node!)}>
       <img src={frameReport.imageUri} width={frameReport.width} height={frameReport.height}
         onLoad={() => setTimeout(resize)} />
-      {frameReport.hotspots.map(({ x, y, w, h, nodeId, aa, aaa }, i) => {
+      {frameReport.hotspots.map(({ x, y, w, h: height, nodeId, aa, aaa }, i) => {
         let { note, contrastRatio, status } = (benchmark === 'aa') ? aa : aaa;
         return <div className={cn('text-node-hotspot', `status-${status}`)}
-          onClick={() => messenger.send('selectNode', nodeId)}
+          onClick={() => emit('SELECT_NODE', nodeId)}
           key={i}
           style={{
             left: x,
             top: y,
             width: w,
-            height: h,
+            height,
           }}>
           <span>{note || formatContrastRatio(contrastRatio)}</span>
         </div>;
@@ -245,7 +244,7 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
   </div>
 }
 
-function urlForImageBytes(ui8arr) {
+function urlForImageBytes(ui8arr: Uint8Array) {
   //let base64Data = btoa(String.fromCharCode.apply(null, report.imageWithTextLayers));
   //return `data:image/png;base64,${base64Data}`;
   return URL.createObjectURL(new Blob([ui8arr]));
@@ -254,7 +253,7 @@ function urlForImageBytes(ui8arr) {
 /**
  * Fit-inside algorithm
  */
-function fitted(contentWidth, contentHeight, containerWidth, containerHeight) {
+function fitted(contentWidth: number, contentHeight: number, containerWidth: number, containerHeight: number) {
   if (contentWidth / contentHeight < containerWidth / containerHeight) {
     let scaleFactor = containerHeight / contentHeight;
     return {
@@ -272,4 +271,4 @@ function fitted(contentWidth, contentHeight, containerWidth, containerHeight) {
   }
 }
 
-ReactDOM.render(<App />, document.querySelector('.root'));
+export default render(Plugin);

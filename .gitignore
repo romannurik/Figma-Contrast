@@ -2,4 +2,5 @@ _sandbox
 node_modules
 dist
 build
+manifest.json
 .DS_Store

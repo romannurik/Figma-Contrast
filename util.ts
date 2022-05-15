@@ -1,4 +1,6 @@
-export function walk(node: BaseNode, fn: Function, context?: any) {
+type WalkFunction = (node: BaseNode, context?: any) => 'skipchildren' | any;
+
+export function walk(node: BaseNode, fn: WalkFunction, context?: any) {
   context = fn(node, context);
   if (context === 'skipchildren') {
     return;
@@ -10,8 +12,8 @@ export function walk(node: BaseNode, fn: Function, context?: any) {
 
 
 export function pageContainingNode(node: BaseNode) {
-  while (node && node.type !== 'PAGE') {
-    node = node.parent;
+  while (node?.type !== 'PAGE') {
+    node = node.parent!;
   }
   return node.type === 'PAGE' ? node : null;
 }
@@ -19,7 +21,7 @@ export function pageContainingNode(node: BaseNode) {
 /**
  * Mixes the given colors (RGBA dicts) at the given amount (0 to 1).
  */
-export function mixColors(c1: RGBA, c2: RGBA, amount): RGBA {
+export function mixColors(c1: RGBA, c2: RGBA, amount: number): RGBA {
   // from tinycolor
   // https://github.com/bgrins/TinyColor/blob/master/tinycolor.js#L701
   amount = (amount === 0) ? 0 : (amount || 50);

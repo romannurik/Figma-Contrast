@@ -1,18 +1,9 @@
 {
+  "extends": "@create-figma-plugin/tsconfig",
   "compilerOptions": {
-    "jsx": "react",
-    "target": "es6",
-    "allowSyntheticDefaultImports": true,
-    "lib": [
-      "es2017.object",
-      "es2019",
-      "es6",
-      "dom"
-    ],
-    "moduleResolution": "node",
-    "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@figma"
-    ]
+    "typeRoots": ["node_modules/@figma", "node_modules/@types"],
+    "downlevelIteration": true,
+    "jsxFragmentFactory": "Fragment",
   },
+  "include": ["commands/**/*.ts", "commands/**/*.tsx"]
 }

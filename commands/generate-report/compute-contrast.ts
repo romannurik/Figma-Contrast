@@ -62,7 +62,7 @@ export function computeTypeContrast(textNodeInfo: TextNodeInfo, bgImageData: Ima
 }
 
 
-function detailFor(numFail, numPass, minCR, maxCR): ContrastResultDetail {
+function detailFor(numFail: number, numPass: number, minCR: number, maxCR: number): ContrastResultDetail {
   let note = (minCR === maxCR)
     ? formatContrastRatio(minCR)
     : formatContrastRatio(minCR) + ' – ' + formatContrastRatio(maxCR)
@@ -94,6 +94,6 @@ function detailFor(numFail, numPass, minCR, maxCR): ContrastResultDetail {
 /**
  * Takes a number like 5.561236 and formats it as a contrast ratio like 5.57:1
  */
-export function formatContrastRatio(contrastRatio) {
+export function formatContrastRatio(contrastRatio: number) {
   return isNaN(contrastRatio) ? 'NA' : contrastRatio.toFixed(2) + ':1';
 }

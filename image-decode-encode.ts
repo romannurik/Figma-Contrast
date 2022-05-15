@@ -1,7 +1,7 @@
 // Encoding an image is also done by sticking pixels in an
 // HTML canvas and by asking the canvas to serialize it into
 // an actual PNG file via canvas.toBlob()
-export async function encodeFromImageData(canvas, ctx, imageData) {
+export async function encodeFromImageData(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, imageData: ImageData) {
   ctx.putImageData(imageData, 0, 0)
 
   return await new Promise((resolve, reject) => {
@@ -9,14 +9,14 @@ export async function encodeFromImageData(canvas, ctx, imageData) {
       const reader = new FileReader();
       reader.onload = () => resolve(new Uint8Array(<ArrayBuffer>reader.result));
       reader.onerror = () => reject(new Error('Could not read from blob'));
-      reader.readAsArrayBuffer(blob);
+      reader.readAsArrayBuffer(blob!);
     })
   })
 }
 
 // Decoding an image can be done by sticking it in an HTML canvas,
 // since we can read individual pixels off the canvas.
-export async function decodeToImageData(bytes): Promise<ImageData> {
+export async function decodeToImageData(bytes: Uint8Array): Promise<ImageData> {
   const url = URL.createObjectURL(new Blob([bytes]));
   const image: HTMLImageElement = await new Promise((resolve, reject) => {
     const img = new Image();
@@ -26,7 +26,7 @@ export async function decodeToImageData(bytes): Promise<ImageData> {
   });
 
   let canvas = document.createElement('canvas');
-  let ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d')!;
   ctx.canvas.width = image.width;
   ctx.canvas.height = image.height;
   ctx.drawImage(image, 0, 0);
@@ -36,7 +36,7 @@ export async function decodeToImageData(bytes): Promise<ImageData> {
 
 
 
-export function getImageDataPixel(imageData: ImageData, x: number, y: number, constrain = true): RGBA {
+export function getImageDataPixel(imageData: ImageData, x: number, y: number, constrain = true): RGBA | null {
   x = Math.round(x);
   y = Math.round(y);
   if (constrain) {
