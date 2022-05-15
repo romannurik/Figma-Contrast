@@ -1,16 +1,1 @@
-{
-  "api": "1.0.0",
-  "editorType": [
-    "figma"
-  ],
-  "id": "911262488575486588",
-  "name": "Contrast",
-  "main": "build/main.js",
-  "ui": "build/ui.js",
-  "menu": [
-    {
-      "name": "Generate contrast report",
-      "command": "./commands/generate-report--default"
-    }
-  ]
-}
+{"api":"1.0.0","editorType":["figma"],"id":"815459412677630743","name":"Contrast","main":"build/main.js","ui":"build/ui.js","menu":[{"name":"Generate contrast report","command":"./commands/generate-report--default"}]}

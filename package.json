@@ -2,10 +2,8 @@
   "name": "contrast-figma-plugin",
   "version": "1.0.0",
   "scripts": {
-    "OLD_build:google": "PLUGIN_ID=815459412677630743 figpack",
-    "OLD_start:google": "PLUGIN_ID=815459412677630743 figpack --watch",
-    "OLD_build": "PLUGIN_ID=911262488575486588 figpack",
-    "OLD_start": "PLUGIN_ID=911262488575486588 figpack --watch",
+    "build:google": "PLUGIN_ID=815459412677630743 npm run build",
+    "start:google": "PLUGIN_ID=815459412677630743 npm run start",
     "build": "build-figma-plugin --typecheck --minify",
     "start": "build-figma-plugin --typecheck --watch"
   },
@@ -24,6 +22,7 @@
     "classnames": "^2.2.6"
   },
   "figma-plugin": {
+    "id": "911262488575486588",
     "name": "Contrast",
     "menu": [
       {
@@ -31,7 +30,6 @@
         "main": "./commands/generate-report",
         "ui": "./commands/generate-report/ui.tsx"
       }
-    ],
-    "id": "911262488575486588"
+    ]
   }
 }
