@@ -1,5 +1,5 @@
 import '!./ui.css';
-import { Container, IconButton, IconSwap32, LoadingIndicator, render, SegmentedControl } from '@create-figma-plugin/ui';
+import { Container, IconButton, IconSwap32, IconToggleButton, LoadingIndicator, render, SegmentedControl } from '@create-figma-plugin/ui';
 import { emit, on } from '@create-figma-plugin/utilities';
 import cn from 'classnames';
 import { Fragment, h } from 'preact';
@@ -20,6 +20,7 @@ interface FR {
   height: number;
   imageUri: string;
   hotspots: HotSpot[];
+  pageBgColor?: RGB;
 }
 
 function Plugin() {
@@ -29,13 +30,14 @@ function Plugin() {
   let [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    let unsub = on('REPORT_AVAILABLE', async report => {
+    let unsub = on('REPORT_AVAILABLE', async (report: { frameReports: FrameReport[] }) => {
       // called when either the initial or a refreshed report is available
       let newFrameReports: FR[] = [...frameReports];
       for (let frame of report.frameReports) {
         let {
           nodeId, width, height, name,
-          imageWithoutTextLayers, imageWithTextLayers, textNodeInfos
+          imageWithoutTextLayers, imageWithTextLayers, textNodeInfos,
+          pageBgColor,
         } = frame;
         let bgImageData = await decodeToImageData(imageWithoutTextLayers);
         let imageUri = urlForImageBytes(imageWithTextLayers);
@@ -48,7 +50,7 @@ function Plugin() {
           });
         }
 
-        let fr = { nodeId, name, imageUri, hotspots, width, height };
+        let fr: FR = { nodeId, name, imageUri, hotspots, width, height, pageBgColor };
         let existingIndex = newFrameReports.findIndex(({ nodeId }) => nodeId === fr.nodeId);
         if (existingIndex >= 0) {
           newFrameReports.splice(existingIndex, 1, fr);
@@ -70,7 +72,7 @@ function Plugin() {
 
   if (!loaded) {
     return <>
-      <div className="loading-spinner">
+      <div className="loading-state">
         <LoadingIndicator />
         Generating contrast report&hellip;
       </div>
@@ -83,13 +85,12 @@ function Plugin() {
       <SegmentedControl
         value={benchmark}
         options={[
-          { value: 'aa', children: <Container>AA</Container> },
-          { value: 'aaa', children: <Container>AAA</Container> },
+          { value: 'aa', children: <Container space="small">AA</Container> },
+          { value: 'aaa', children: <Container space="small">AAA</Container> },
         ]}
         onValueChange={value => setBenchmark(value)} />
       <div style={{ flex: 1 }} />
-      {selectedFR && <IconButton value={false}
-        onClick={() => emit('REGENERATE_REPORT', selectedFR!.nodeId)}>
+      {selectedFR && <IconButton onClick={() => emit('REGENERATE_REPORT', selectedFR!.nodeId)}>
         <IconSwap32 />
       </IconButton>}
     </div>
@@ -191,6 +192,11 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
   }
 
   return <div className={cn('preview', { 'is-dragging': isDragging })}
+    style={{
+      backgroundColor: frameReport.pageBgColor
+        ? rgbToCssColor(frameReport.pageBgColor)
+        : 'transparent'
+    }}
     ref={node => node !== previewNode && setPreviewNode(node!)}
     onWheel={ev => {
       setZoom(Math.max(0.1, Math.min(10, zoom * (1.01 ** -ev.deltaY))));
@@ -242,6 +248,10 @@ function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchma
       })}
     </div>}
   </div>
+}
+
+function rgbToCssColor({ r, g, b }: RGB) {
+  return `rgb(${r * 255},${g * 255},${b * 255})`;
 }
 
 function urlForImageBytes(ui8arr: Uint8Array) {

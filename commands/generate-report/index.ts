@@ -235,6 +235,7 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
       imageWithTextLayers,
       imageWithoutTextLayers,
       textNodeInfos,
+      pageBgColor: (util.pageContainingNode(targetFrame)?.backgrounds?.[0] as SolidPaint)?.color,
       nodeId: targetFrame.id,
       width: targetFrame.width,
       height: targetFrame.height,

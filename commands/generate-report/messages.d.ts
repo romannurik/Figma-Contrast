@@ -6,6 +6,7 @@ interface FrameReport {
   imageWithTextLayers: Uint8Array;
   imageWithoutTextLayers: Uint8Array;
   textNodeInfos: TextNodeInfo[];
+  pageBgColor?: RGB;
 }
 
 interface TextStyleSample {
