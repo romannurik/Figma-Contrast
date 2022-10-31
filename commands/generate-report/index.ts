@@ -2,6 +2,8 @@ import { emit, on, showUI } from '@create-figma-plugin/utilities';
 import * as util from '../../util';
 
 const WINDOW_SIZE_KEY = 'size';
+const MIN_WIDTH = 200;
+const MIN_HEIGHT = 200;
 
 export default function () {
   if (!figma.currentPage.children.length) {
@@ -12,9 +14,10 @@ export default function () {
 
   (async () => {
     let size = await figma.clientStorage.getAsync(WINDOW_SIZE_KEY) || { width: 900, height: 600 };
-    let { allOnPage, targetFrames } = identifyTargetFrames();
-    let subject = `page "${figma.currentPage.name}"`;
-    if (!allOnPage) {
+    size.width = Math.max(MIN_WIDTH, size.width);
+    size.height = Math.max(MIN_HEIGHT, size.height);
+    let { subject, targetFrames } = identifyTargetFrames();
+    if (!subject) {
       subject = targetFrames.length === 1
         ? `frame "${targetFrames[0].name}"`
         : `${targetFrames.length} frames`;
@@ -30,6 +33,8 @@ export default function () {
   on('RESIZE', (width, height) => {
     width = Math.ceil(width);
     height = Math.ceil(height);
+    width = Math.max(MIN_WIDTH, width);
+    height = Math.max(MIN_HEIGHT, height);
     figma.ui.resize(width, height);
     figma.clientStorage.setAsync(WINDOW_SIZE_KEY, { width, height });
   });
@@ -89,33 +94,67 @@ export default function () {
   });
 }
 
-function identifyTargetFrames(): { targetFrames: FrameNode[], allOnPage: boolean } {
-  let targetNodes = figma.currentPage.selection;
-  let allOnPage = false;
-  if (!targetNodes.length) {
-    targetNodes = [...figma.currentPage.children];
-    allOnPage = true;
+/**
+ * Returns all top-level frames that are directly children of the given
+ * page or section node, or are nested in sections of the given node.
+ */
+function topLevelFramesUnder(node: PageNode | SectionNode | FrameNode): FrameNode[] {
+  if (node.type === 'FRAME') {
+    return [node];
   }
+
+  let frames: FrameNode[] = [];
+  for (let child of node.children) {
+    if (child.type === 'FRAME') {
+      frames.push(child);
+    } else if (child.type === 'SECTION') {
+      frames = [...frames, ...topLevelFramesUnder(child)];
+    }
+  }
+
+  return frames;
+}
+
+function identifyTargetFrames(): { targetFrames: FrameNode[], subject?: string } {
+  if (!figma.currentPage.selection.length) {
+    return {
+      targetFrames: topLevelFramesUnder(figma.currentPage).reverse(),
+      subject: `page "${figma.currentPage.name}"`
+    };
+  }
+
+  let subject: string | undefined = undefined;
 
   // find all top-level frames to report on
-  let targetFrames: FrameNode[] = [...new Set(
-    targetNodes
+  const selectionRoots = [...new Set(
+    figma.currentPage.selection
       .map((selectedNode: SceneNode) => {
         let node: SceneNode = selectedNode;
-        while (node?.parent?.type !== 'PAGE') {
+        while (node?.parent?.type !== 'PAGE' && node?.parent?.type !== 'SECTION') {
           node = node.parent as SceneNode;
         }
-        return (node?.type === 'FRAME') ? node as FrameNode : null;
+        return (node?.type === 'FRAME' || node?.type === 'SECTION') ? node : null;
       })
       .filter(n => !!n)
-  )] as FrameNode[];
+  )] as (SectionNode | FrameNode)[];
 
-  if (!targetFrames.length) {
-    targetFrames = figma.currentPage.children.filter(node => node.type === 'FRAME') as FrameNode[];
-    allOnPage = true;
+  if (selectionRoots.length === 1) {
+    let onlyItem = selectionRoots[0];
+    if (onlyItem.type === 'SECTION') {
+      subject = `section "${onlyItem.name}"`;
+    }
   }
 
-  return { targetFrames, allOnPage };
+  let targetFrames: FrameNode[] = selectionRoots.flatMap(n => topLevelFramesUnder(n));
+
+  if (!targetFrames.length) {
+    return {
+      targetFrames: topLevelFramesUnder(figma.currentPage).reverse(),
+      subject: `page "${figma.currentPage.name}"`
+    };
+  }
+
+  return { targetFrames, subject };
 }
 
 const EXPORT_SETTINGS: ExportSettings = {
@@ -181,6 +220,8 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
               // TODO: somehow figure out image text fills?
               return [];
           }
+
+          return [];
         }
 
         let isBold = ({ style }: FontName): boolean => !!style.match(/medium|bold|black/i);
@@ -232,6 +273,7 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
 
     frameReports.push({
       name: targetFrame.name,
+      path: framePath(targetFrame),
       imageWithTextLayers,
       imageWithoutTextLayers,
       textNodeInfos,
@@ -243,6 +285,19 @@ async function generateReportsForFrames(targetFrames: FrameNode[]): Promise<Fram
   }
 
   return frameReports;
+}
+
+function framePath(frame: FrameNode): FramePathPart[] {
+  let path: FramePathPart[] = [];
+  let node = frame.parent;
+  while (node?.type === 'SECTION') {
+    path.unshift({
+      sectionNodeId: node.id,
+      name: node.name
+    });
+    node = node.parent;
+  }
+  return path;
 }
 
 function mapNodeIds(original: BaseNode, dup: BaseNode): Map<string, string> {

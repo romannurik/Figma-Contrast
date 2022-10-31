@@ -1,5 +1,11 @@
+interface FramePathPart {
+  sectionNodeId: string;
+  name: string;
+}
+
 interface FrameReport {
   nodeId: string;
+  path: FramePathPart[];
   width: number;
   height: number;
   name: string;

@@ -1,9 +1,9 @@
 import '!./ui.css';
-import { Container, IconButton, IconSwap32, IconToggleButton, LoadingIndicator, render, SegmentedControl } from '@create-figma-plugin/ui';
+import { Container, IconButton, IconCaretRight16, IconCaretDown16, IconSwap32, LoadingIndicator, render, SegmentedControl } from '@create-figma-plugin/ui';
 import { emit, on } from '@create-figma-plugin/utilities';
 import cn from 'classnames';
 import { Fragment, h } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { decodeToImageData } from '../../image-decode-encode';
 import { computeTypeContrast, formatContrastRatio } from './compute-contrast';
 import IconResizeHandle12 from './images/IconResizeHandle12';
@@ -15,6 +15,7 @@ type Benchmark = "aa" | "aaa";
 
 interface FR {
   name: string;
+  path: FramePathPart[];
   nodeId: string;
   width: number;
   height: number;
@@ -35,7 +36,7 @@ function Plugin() {
       let newFrameReports: FR[] = [...frameReports];
       for (let frame of report.frameReports) {
         let {
-          nodeId, width, height, name,
+          nodeId, width, height, name, path,
           imageWithoutTextLayers, imageWithTextLayers, textNodeInfos,
           pageBgColor,
         } = frame;
@@ -50,7 +51,7 @@ function Plugin() {
           });
         }
 
-        let fr: FR = { nodeId, name, imageUri, hotspots, width, height, pageBgColor };
+        let fr: FR = { nodeId, name, path, imageUri, hotspots, width, height, pageBgColor };
         let existingIndex = newFrameReports.findIndex(({ nodeId }) => nodeId === fr.nodeId);
         if (existingIndex >= 0) {
           newFrameReports.splice(existingIndex, 1, fr);
@@ -95,7 +96,7 @@ function Plugin() {
       </IconButton>}
     </div>
     <div className="main">
-      {frameReports.length >= 2 && <FrameReportList
+      {frameReports.length >= 2 && <FrameReportTree
         frameReports={frameReports}
         selectedItem={selectedFR}
         benchmark={benchmark}
@@ -134,30 +135,117 @@ function ResizeHandle() {
   </div>;
 }
 
-function FrameReportList({ frameReports, benchmark, selectedItem, onSelectItem }:
+interface SR {
+  sectionNodeId: string;
+  sectionName: string;
+  children: FrameReportTreeNode[];
+}
+
+type FrameReportTreeNode = FR | SR;
+
+function FrameReportTree({ frameReports, benchmark, selectedItem, onSelectItem }:
   { frameReports: FR[], benchmark: Benchmark, selectedItem: FR | null, onSelectItem: (fr: FR) => any }) {
 
-  return <div className="frame-list">
-    {frameReports.map((fr, i) => {
-      let scoresByStatus: { [status: string]: number } = {};
-      for (let hotspot of fr.hotspots) {
-        let contrastResult = hotspot as ContrastResult;
-        let { status } = (benchmark === 'aa') ? contrastResult.aa : contrastResult.aaa;
-        scoresByStatus[status] = (scoresByStatus[status] || 0) + 1;
+  const tree: FrameReportTreeNode[] = useMemo<FrameReportTreeNode[]>(() => {
+    function nest(reports: FR[], depth: number): FrameReportTreeNode[] {
+      let itemsAtThisLevel: FrameReportTreeNode[] = [];
+      let sectionItemById: { [id: string]: SR } = {};
+
+      for (let report of reports) {
+        if (report.path.length <= depth) {
+          itemsAtThisLevel.push(report);
+        } else {
+          const part = report.path[depth];
+          if (!(part.sectionNodeId in sectionItemById)) {
+            const sectionItem = {
+              children: [],
+              sectionName: part.name,
+              sectionNodeId: part.sectionNodeId,
+            };
+            itemsAtThisLevel.push(sectionItem);
+            sectionItemById[part.sectionNodeId] = sectionItem;
+          }
+          sectionItemById[part.sectionNodeId].children.push(report);
+        }
       }
 
-      return <button
-        key={i}
-        className={cn('frame-list-item', 'type', { 'is-selected': fr === selectedItem })}
-        onClick={() => onSelectItem(fr)}>
-        <span>{fr.name}</span>
-        <div className="frame-list-item-score">
-          {Object.keys(scoresByStatus).sort().map(status =>
-            <div className={`score-${status}`}>{scoresByStatus[status]}</div>)}
-        </div>
-      </button>;
-    })}
+      for (let section of Object.values(sectionItemById)) {
+        section.children = nest(section.children as FR[], depth + 1);
+      }
+
+      return itemsAtThisLevel;
+    }
+
+    return nest(frameReports, 0);
+  }, [frameReports]);
+
+  return <div className="frame-tree">
+    <FrameReportChildren tree={tree}
+      depth={0}
+      benchmark={benchmark}
+      selectedItem={selectedItem}
+      onSelectItem={onSelectItem} />
   </div>;
+}
+
+function FrameReportChildren({ tree, depth, ...props }: { tree: FrameReportTreeNode[], depth: number, [x: string]: any }) {
+  let [openStates, setOpenStates] = useState<{[ id: string]: boolean }>({});
+  return <>
+    {tree.map(node => {
+      if ('children' in node) {
+        let open = (!(node.sectionNodeId in openStates)) || !!openStates[node.sectionNodeId];
+        return <div className="frame-section-item" key={node.sectionNodeId}
+          style={{ '--depth': depth }}>
+          <button
+            className={cn('frame-section-item-toggle', {'is-open': open })}
+            onClick={() => setOpenStates({ ...openStates, [node.sectionNodeId]: !open })}>
+            <div class="frame-section-item-toggle-icon">
+              <IconCaretRight16 />
+            </div>
+            {node.sectionName}
+          </button>
+          {open && <div className="frame-section-item-children" style={{ '--depth': depth + 1 }}>
+            <FrameReportChildren
+              depth={depth + 1}
+              key={node.sectionNodeId}
+              tree={node.children}
+              {...props} />
+          </div>}
+        </div>
+      } else {
+        return <FrameReportLeafItem
+          key={node.nodeId}
+          fr={node}
+          benchmark={props.benchmark}
+          isSelected={props.selectedItem === node}
+          onSelect={() => props.onSelectItem(node)} />;
+      }
+    })}
+  </>;
+}
+
+function FrameReportLeafItem({ fr, benchmark, isSelected, onSelect }:
+  { fr: FR, benchmark: Benchmark, isSelected: boolean, onSelect: Function }) {
+
+  let scoresByStatus = useMemo(() => {
+    let result: { [status: string]: number } = {};
+    for (let hotspot of fr.hotspots) {
+      let contrastResult = hotspot as ContrastResult;
+      let { status } = (benchmark === 'aa') ? contrastResult.aa : contrastResult.aaa;
+      result[status] = (result[status] || 0) + 1;
+    }
+    return result;
+  }, [fr, benchmark]);
+
+  return <button
+    className={cn('frame-list-item', { 'is-selected': isSelected })}
+    onClick={() => onSelect()}>
+  <span>{fr.name}</span>
+  <div className="frame-list-item-score">
+    {Object.keys(scoresByStatus).sort().map(status =>
+      <div className={`score-${status}`}>{scoresByStatus[status]}</div>)}
+  </div>
+</button>;
 }
 
 function ReportScreenshot({ frameReport, benchmark }: { frameReport: FR, benchmark: Benchmark }) {

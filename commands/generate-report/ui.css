@@ -61,9 +61,9 @@ body {
   min-height: 0;
 }
 
-.frame-list {
+.frame-tree {
   flex: 0 0 auto;
-  width: 128px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--figma-color-border);
@@ -71,17 +71,52 @@ body {
   overflow-y: auto;
 }
 
-.frame-list-item {
+.frame-section-item {
+  display: flex;
+  flex-direction: column;
+  font-weight: bold;
+}
+
+.frame-section-item-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.frame-section-item-toggle {
+  position: relative;
+}
+
+.frame-section-item-toggle.is-open .frame-section-item-toggle-icon {
+  transform: translate(2px, -2px) translateY(-50%) rotate(90deg) ;
+}
+
+.frame-section-item-toggle-icon {
+  position: absolute;
+  left: calc(var(--depth, 0) * 20px);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--figma-color-icon-tertiary);
+}
+
+.frame-list-item,
+.frame-section-item-toggle {
   appearance: none;
   background-color: transparent;
   border: 0;
   text-align: left;
   padding: 8px 12px;
+  padding-left: calc(var(--depth, 0) * 20px + 20px);
   outline: 0;
   color: var(--figma-color-text);
 }
 
-.frame-list-item:hover {
+.frame-list-item:focus-visible,
+.frame-section-item-toggle:focus-visible {
+  box-shadow: 0 0 0 2px var(--figma-color-border-selected) inset;
+}
+
+.frame-list-item:hover,
+.frame-section-item-toggle:hover {
   box-shadow: 0 0 0 1px var(--figma-color-border-selected) inset;
 }
 

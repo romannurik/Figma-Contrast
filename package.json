@@ -10,7 +10,7 @@
   "devDependencies": {
     "@create-figma-plugin/build": "^2.1.1",
     "@create-figma-plugin/tsconfig": "^2.1.1",
-    "@figma/plugin-typings": "^1.47.0",
+    "@figma/plugin-typings": "^1.55.0",
     "postcss": "^8.4.13",
     "postcss-nested": "^5.0.6",
     "typescript": "^4"
@@ -18,8 +18,8 @@
   "dependencies": {
     "@create-figma-plugin/ui": "^2.1.1",
     "@create-figma-plugin/utilities": "^2.1.1",
-    "preact": "^10",
-    "classnames": "^2.2.6"
+    "classnames": "^2.2.6",
+    "preact": "^10"
   },
   "figma-plugin": {
     "id": "911262488575486588",
