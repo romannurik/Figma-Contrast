@@ -112,7 +112,7 @@ function Plugin() {
 function ResizeHandle() {
   return <div className="resize-handle"
     onPointerDown={ev => {
-      ev.preventDefault();
+      ev.stopPropagation();
       let down = { x: ev.clientX, y: ev.clientY };
       let downSize = { width: window.innerWidth, height: window.innerHeight };
       let move_ = (ev: PointerEvent) => {
