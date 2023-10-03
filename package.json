@@ -11,7 +11,7 @@
     "@create-figma-plugin/build": "^2.1.1",
     "@create-figma-plugin/tsconfig": "^2.1.1",
     "@figma/plugin-typings": "^1.55.0",
-    "postcss": "^8.4.13",
+    "postcss": "^8.4.31",
     "postcss-nested": "^5.0.6",
     "typescript": "^4"
   },
