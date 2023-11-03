@@ -112,7 +112,8 @@ function Plugin() {
 function ResizeHandle() {
   return <div className="resize-handle"
     onPointerDown={ev => {
-      ev.preventDefault();
+      // If preventDefault is added, we run into https://github.com/romannurik/Figma-Contrast/issues/15
+      // ev.preventDefault();
       let down = { x: ev.clientX, y: ev.clientY };
       let downSize = { width: window.innerWidth, height: window.innerHeight };
       let move_ = (ev: PointerEvent) => {

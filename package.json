@@ -8,9 +8,9 @@
     "start": "build-figma-plugin --typecheck --watch"
   },
   "devDependencies": {
-    "@create-figma-plugin/build": "^2.1.1",
-    "@create-figma-plugin/tsconfig": "^2.1.1",
-    "@figma/plugin-typings": "^1.55.0",
+    "@create-figma-plugin/build": "^2.6.1",
+    "@create-figma-plugin/tsconfig": "^2.6.1",
+    "@figma/plugin-typings": "^1.80.0",
     "postcss": "^8.4.13",
     "postcss-nested": "^5.0.6",
     "typescript": "^4"
@@ -24,6 +24,11 @@
   "figma-plugin": {
     "id": "911262488575486588",
     "name": "Contrast",
+    "networkAccess": {
+      "allowedDomains": [
+        "none"
+      ]
+    },
     "menu": [
       {
         "name": "Generate contrast report",
